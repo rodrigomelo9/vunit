@@ -4,12 +4,33 @@
 #
 # Copyright (c) 2014-2021, Lars Asplund lars.anders.asplund@gmail.com
 
+from os import getenv
 from pathlib import Path
 from vunit import VUnit
 
-ROOT = Path(__file__).parent
 
-UI = VUnit.from_argv()
-UI.library("vunit_lib").add_source_files(ROOT / "test" / "*.vhd")
+def main():
+    vhdl_2019 = getenv("VUNIT_VHDL_STANDARD") == "2019"
+    root = Path(__file__).parent
 
-UI.main()
+    ui = VUnit.from_argv()
+    ui.enable_location_preprocessing(
+        additional_subprograms=["print_pre_vhdl_2019_style"],
+        exclude_subprograms=["info", "verbose"],
+    )
+
+    vunit_lib = ui.library("vunit_lib")
+    vunit_lib.add_source_files(root / "test" / "*.vhd")
+
+    if vhdl_2019:
+        testbenches = vunit_lib.get_source_files("*tb*")
+        testbenches.set_compile_option("rivierapro.vcom_flags", ["-dbg"])
+        ui.set_sim_option("rivierapro.vsim_flags", ["-filter RUNTIME_0375"])
+
+    vunit_lib.test_bench("tb_location").set_generic("vhdl_2019", vhdl_2019)
+
+    ui.main()
+
+
+if __name__ == "__main__":
+    main()

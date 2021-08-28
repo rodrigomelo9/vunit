@@ -13,7 +13,6 @@ use vunit_lib.integer_vector_ptr_pkg.all;
 use work.ansi_pkg.all;
 use work.string_ops.upper;
 use work.file_pkg.all;
-use work.location_pkg.all;
 
 package body log_handler_pkg is
 
@@ -230,10 +229,9 @@ package body log_handler_pkg is
       end;
 
       procedure write_location(variable l : inout line) is
-        variable location : location_t := get_location(line_num, file_name);
       begin
-        if location.file_name /= null then
-          write(l, " (" & location.file_name.all & ":" & integer'image(location.line_num) & ")");
+        if file_name /= "" then
+          write(l, " (" & file_name & ":" & integer'image(line_num) & ")");
         end if;
       end;
 
