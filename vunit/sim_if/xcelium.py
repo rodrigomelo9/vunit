@@ -30,6 +30,8 @@ class XceliumInterface(  # pylint: disable=too-many-instance-attributes
     """
 
     name = "xcelium"
+    executable_name = "xrun"
+    option_prefix = "xm"
     supports_gui_flag = True
     package_users_depend_on_bodies = False
 
@@ -38,7 +40,9 @@ class XceliumInterface(  # pylint: disable=too-many-instance-attributes
         ListOfStringOption("xcelium.xrun_verilog_flags"),
     ]
 
-    sim_options = [ListOfStringOption("xcelium.xrun_sim_flags")]
+    sim_options = [
+        ListOfStringOption("%s.%s_sim_flags" % (name, executable_name))
+    ]
 
     @staticmethod
     def add_arguments(parser):
@@ -76,9 +80,9 @@ class XceliumInterface(  # pylint: disable=too-many-instance-attributes
     @classmethod
     def find_prefix_from_path(cls):
         """
-        Find xcelium simulator from PATH environment variable
+        Find simulator from PATH environment variable
         """
-        return cls.find_toolchain(["xrun"])
+        return cls.find_toolchain([cls.executable_name])
 
     @staticmethod
     def supports_vhdl_contexts():
@@ -107,7 +111,7 @@ class XceliumInterface(  # pylint: disable=too-many-instance-attributes
         Finds xrun cds root
         """
         return subprocess.check_output(
-            [str(Path(self._prefix) / "cds_root"), "xrun"]
+            [str(Path(self._prefix) / "cds_root"), self.executable_name]
         ).splitlines()[0]
 
     def find_cds_root_virtuoso(self):
@@ -193,7 +197,7 @@ define work "{2}/libraries/work"
         """
         Returns command to compile a VHDL file
         """
-        cmd = str(Path(self._prefix) / "xrun")
+        cmd = str(Path(self._prefix) / self.executable_name)
         args = []
         args += ["-compile"]
         args += ["-nocopyright"]
@@ -216,8 +220,13 @@ define work "{2}/libraries/work"
         else:
             args += ["-messages"]
             args += ["-libverbose"]
-        args += source_file.compile_options.get("xcelium.xrun_vhdl_flags", [])
-        args += ['-xmlibdirname "%s"' % str(Path(source_file.library.directory).parent)]
+        args += source_file.compile_options.get(
+            "%s.%s_vhdl_flags" % (self.name, self.executable_name), []
+        )
+        args += [
+            '-%slibdirname "%s"' %
+            (self.option_prefix, str(Path(source_file.library.directory).parent))
+        ]
         args += ["-makelib %s" % source_file.library.directory]
         args += ['"%s"' % source_file.name]
         args += ["-endlib"]
@@ -232,7 +241,7 @@ define work "{2}/libraries/work"
         """
         Returns commands to compile a Verilog file
         """
-        cmd = str(Path(self._prefix) / "xrun")
+        cmd = str(Path(self._prefix) / self.executable_name)
         args = []
         args += ["-compile"]
         args += ["-nocopyright"]
@@ -244,7 +253,9 @@ define work "{2}/libraries/work"
         # "cds.lib Invalid environment variable ''."
         args += ["-nowarn DLCVAR"]
         args += ["-work work"]
-        args += source_file.compile_options.get("xcelium.xrun_verilog_flags", [])
+        args += source_file.compile_options.get(
+            "%s.%s_verilog_flags" % (self.name, self.executable_name), []
+        )
         args += ['-cdslib "%s"' % self._cdslib]
         args += self._hdlvar_args()
         args += [
@@ -267,7 +278,10 @@ define work "{2}/libraries/work"
 
         for key, value in source_file.defines.items():
             args += ["-define %s=%s" % (key, value.replace('"', '\\"'))]
-        args += ['-xmlibdirname "%s"' % str(Path(source_file.library.directory).parent)]
+        args += [
+            '-%slibdirname "%s"' %
+            (self.option_prefix, str(Path(source_file.library.directory).parent))
+        ]
         args += ["-makelib %s" % source_file.library.name]
         args += ['"%s"' % source_file.name]
         args += ["-endlib"]
@@ -322,7 +336,7 @@ define work "{2}/libraries/work"
             steps = ["elaborate", "simulate"]
 
         for step in steps:
-            cmd = str(Path(self._prefix) / "xrun")
+            cmd = str(Path(self._prefix) / self.executable_name)
             args = []
             if step == "elaborate":
                 args += ["-elaborate"]
@@ -338,19 +352,22 @@ define work "{2}/libraries/work"
             args += ["-nowarn DLCPTH"]  # "cds.lib Invalid path"
             args += ["-nowarn DLCVAR"]  # "cds.lib Invalid environment variable ''."
             args += [
-                "-xmerror EVBBOL"
+                "-%serror EVBBOL" % self.option_prefix
             ]  # promote to error: "bad boolean literal in generic association"
             args += [
-                "-xmerror EVBSTR"
+                "-%serror EVBSTR" % self.option_prefix
             ]  # promote to error: "bad string literal in generic association"
             args += [
-                "-xmerror EVBNAT"
+                "-%serror EVBNAT" % self.option_prefix
             ]  # promote to error: "bad natural literal in generic association"
             args += ["-work work"]
             args += [
-                '-xmlibdirname "%s"' % (str(Path(self._output_path) / "libraries"))
+                '-%slibdirname "%s"' %
+                (self.option_prefix, str(Path(self._output_path) / "libraries"))
             ]  # @TODO: ugly
-            args += config.sim_options.get("xcelium.xrun_sim_flags", [])
+            args += config.sim_options.get(
+                "%s.%s_sim_flags" % (self.name, self.executable_name), []
+            )
             args += ['-cdslib "%s"' % self._cdslib]
             args += self._hdlvar_args()
             args += ['-log "%s"' % str(Path(script_path) / ("xrun_%s.log" % step))]
